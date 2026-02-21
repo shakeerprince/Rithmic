@@ -1,41 +1,35 @@
 import { Hono } from 'hono';
 import { db, schema } from '../db';
-import { eq, and } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
-const notificationsRoute = new Hono();
+const notifications = new Hono();
 
 // GET /api/notifications
-notificationsRoute.get('/', async (c) => {
-    const userId = c.get('userId') as string;
-    const rows = db.select().from(schema.notifications)
-        .where(eq(schema.notifications.userId, userId)).all();
-
-    // Sort newest first
-    rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return c.json(rows.map(n => ({ ...n, isRead: Boolean(n.isRead) })));
-});
-
-// POST /api/notifications/:id/read
-notificationsRoute.post('/:id/read', async (c) => {
-    const id = c.req.param('id');
-    db.update(schema.notifications).set({ isRead: true }).where(eq(schema.notifications.id, id)).run();
-    return c.json({ message: 'Marked as read' });
+notifications.get('/', async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const rows = await db.select().from(schema.notifications)
+        .where(eq(schema.notifications.userId, userId))
+        .orderBy(desc(schema.notifications.createdAt));
+    return c.json(rows);
 });
 
 // POST /api/notifications/read-all
-notificationsRoute.post('/read-all', async (c) => {
-    const userId = c.get('userId') as string;
-    db.update(schema.notifications).set({ isRead: true }).where(eq(schema.notifications.userId, userId)).run();
-    return c.json({ message: 'All marked as read' });
+notifications.post('/read-all', async (c) => {
+    const userId = c.get('userId' as never) as string;
+    await db.update(schema.notifications)
+        .set({ isRead: true })
+        .where(eq(schema.notifications.userId, userId));
+    return c.json({ success: true });
 });
 
-// GET /api/notifications/unread-count
-notificationsRoute.get('/unread-count', async (c) => {
-    const userId = c.get('userId') as string;
-    const unread = db.select().from(schema.notifications)
-        .where(and(eq(schema.notifications.userId, userId), eq(schema.notifications.isRead, false))).all();
-    return c.json({ count: unread.length });
+// POST /api/notifications/:id/read
+notifications.post('/:id/read', async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const id = c.req.param('id');
+    await db.update(schema.notifications)
+        .set({ isRead: true })
+        .where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId)));
+    return c.json({ success: true });
 });
 
-export default notificationsRoute;
+export default notifications;

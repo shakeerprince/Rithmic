@@ -36,15 +36,15 @@ function getPast7Dates(): string[] {
 // GET /api/dashboard
 dashboard.get('/', async (c) => {
     try {
-        const userId = c.get('userId') as string;
+        const userId = c.get('userId' as never) as string;
 
-        const habits = db.select().from(schema.habits).where(eq(schema.habits.userId, userId)).all();
+        const habits = await db.select().from(schema.habits).where(eq(schema.habits.userId, userId));
         const totalHabits = habits.length || 1; // avoid div-by-zero
 
         // ─── Real weekly streak from habit_entries ───────────────
         const weekDates = getWeekDates();
         const today = new Date().toISOString().split('T')[0];
-        const allEntries = db.select().from(schema.habitEntries).all();
+        const allEntries = await db.select().from(schema.habitEntries);
 
         const weeklyStreak = weekDates.map(date => {
             if (date > today) return 'pending';
@@ -82,7 +82,7 @@ dashboard.get('/', async (c) => {
         ));
 
         // ─── Badges ─────────────────────────────────────────────
-        const earnedBadges = db.select().from(schema.userBadges).where(eq(schema.userBadges.userId, userId)).all();
+        const earnedBadges = await db.select().from(schema.userBadges).where(eq(schema.userBadges.userId, userId));
         const earnedNames = new Set(earnedBadges.map(b => b.badgeName));
 
         const badges = BADGE_DEFS.map(b => ({
@@ -92,54 +92,59 @@ dashboard.get('/', async (c) => {
         }));
 
         // ─── User XP & Level ────────────────────────────────────
-        const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+        const userList = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+        const user = userList[0];
         const userXp = user?.xp || 0;
         const { level, xpInLevel, xpToNext } = calculateLevel(userXp);
 
         // ─── Extended Data: Challenges ──────────────────────────
         const now = new Date();
-        const allChallenges = db.select().from(schema.challenges).all();
-        const activeChallenges = allChallenges
+        const allChallenges = await db.select().from(schema.challenges);
+        const activeChallenges = await Promise.all(allChallenges
             .filter(ch => {
                 const start = new Date(ch.startDate);
                 const end = new Date(ch.endDate);
                 return now >= start && now <= end;
             })
-            .map(ch => {
-                const parts = db.select().from(schema.challengeParticipants)
-                    .where(eq(schema.challengeParticipants.challengeId, ch.id)).all();
+            .map(async (ch) => {
+                const parts = await db.select().from(schema.challengeParticipants)
+                    .where(eq(schema.challengeParticipants.challengeId, ch.id));
                 const end = new Date(ch.endDate);
                 return {
                     ...ch,
                     participantCount: parts.length,
                     isActive: true,
                     daysRemaining: Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000)),
-                    xpReward: ch.xpReward
                 };
-            });
+            }));
 
         // ─── Extended Data: Communities ─────────────────────────
-        const memberships = db.select().from(schema.communityMembers)
-            .where(eq(schema.communityMembers.userId, userId)).all();
-        const communities = memberships.map(m => {
-            const cm = db.select().from(schema.communities)
-                .where(eq(schema.communities.id, m.communityId)).get();
+        const memberships = await db.select().from(schema.communityMembers)
+            .where(eq(schema.communityMembers.userId, userId));
+        const communities = await Promise.all(memberships.map(async (m) => {
+            const cms = await db.select().from(schema.communities)
+                .where(eq(schema.communities.id, m.communityId));
+            const cm = cms[0];
             return cm ? { ...cm, myRole: m.role } : null;
-        }).filter(Boolean);
+        }));
+        const finalCommunities = communities.filter(Boolean);
 
         // ─── Extended Data: Friends ─────────────────────────────
-        const friendships = db.select().from(schema.friendships)
+        const friendshipsList = await db.select().from(schema.friendships)
             .where(and(
                 or(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, userId)),
                 eq(schema.friendships.status, 'accepted'),
-            )).all();
+            ));
+        const friendships = friendshipsList; // rename to match previous usage
         const friendIds = friendships.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
-        const friends = friendIds.map(fid => {
-            return db.select({
+        const friendsList = await Promise.all(friendIds.map(async (fid) => {
+            const usersFound = await db.select({
                 id: schema.users.id, name: schema.users.name,
                 level: schema.users.level, loginStreak: schema.users.loginStreak
-            }).from(schema.users).where(eq(schema.users.id, fid)).get();
-        }).filter(Boolean);
+            }).from(schema.users).where(eq(schema.users.id, fid));
+            return usersFound[0];
+        }));
+        const friends = friendsList.filter(Boolean);
 
         // ─── Server-Side Quote ──────────────────────────────────
         const QUOTES = [
@@ -179,7 +184,7 @@ dashboard.get('/', async (c) => {
                 status: todayEntries.find(e => e.habitId === h.id)?.status || 'pending',
             })),
             challenges: activeChallenges,
-            communities,
+            communities: finalCommunities,
             friends,
         });
     } catch (e: any) {

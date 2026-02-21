@@ -6,6 +6,7 @@ import '../../../../core/widgets/hc_streak_row.dart';
 
 import '../../../dashboard/domain/providers/dashboard_providers.dart';
 import '../../../habits/domain/providers/habit_providers.dart';
+import '../../../../core/providers/theme_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -164,8 +165,9 @@ class ProfileScreen extends ConsumerWidget {
                         color: theme.colorScheme.primary,
                       ),
                       value: isDark,
+
                       onChanged: (v) {
-                        ref.read(themeProvider.notifier).state = v;
+                        ref.read(themeProvider.notifier).toggle();
                       },
                       activeTrackColor: theme.colorScheme.primary,
                     ),

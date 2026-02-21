@@ -5,15 +5,14 @@ const leaderboard = new Hono();
 
 // GET /api/leaderboard
 leaderboard.get('/', async (c) => {
-    const userId = c.get('userId') as string;
-
-    const allUsers = db.select({
+    const userId = c.get('userId' as never) as string;
+    const allUsers = await db.select({
         id: schema.users.id,
         name: schema.users.name,
         xp: schema.users.xp,
         level: schema.users.level,
         avatarUrl: schema.users.avatarUrl,
-    }).from(schema.users).all();
+    }).from(schema.users);
 
     // Sort by XP descending
     allUsers.sort((a, b) => b.xp - a.xp);

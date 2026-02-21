@@ -12,7 +12,7 @@ friends.get('/search', async (c) => {
 
     let results;
     if (q.length >= 2) {
-        results = db.select({
+        results = await db.select({
             id: schema.users.id,
             name: schema.users.name,
             bio: schema.users.bio,
@@ -23,10 +23,10 @@ friends.get('/search', async (c) => {
             .where(and(
                 like(schema.users.name, `%${q}%`),
                 ne(schema.users.id, userId),
-            )).limit(20).all();
+            )).limit(20);
     } else {
         // Return all users if no query
-        results = db.select({
+        results = await db.select({
             id: schema.users.id,
             name: schema.users.name,
             bio: schema.users.bio,
@@ -35,18 +35,19 @@ friends.get('/search', async (c) => {
             level: schema.users.level,
         }).from(schema.users)
             .where(ne(schema.users.id, userId))
-            .limit(50).all();
+            .limit(50);
     }
 
     // Attach friendship status for each
-    const enriched = results.map(u => {
-        const fs = db.select().from(schema.friendships)
+    const enriched = await Promise.all(results.map(async (u) => {
+        const fsFound = await db.select().from(schema.friendships)
             .where(or(
                 and(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, u.id)),
                 and(eq(schema.friendships.requesterId, u.id), eq(schema.friendships.addresseeId, userId)),
-            )).get();
+            ));
+        const fs = fsFound[0];
         return { ...u, friendStatus: fs?.status || 'none', friendshipId: fs?.id || null };
-    });
+    }));
 
     return c.json(enriched);
 });
@@ -56,11 +57,11 @@ friends.get('/suggestions', async (c) => {
     const userId = c.get('userId' as never) as string;
 
     // Get all friendship IDs
-    const allFriendships = db.select().from(schema.friendships)
+    const allFriendships = await db.select().from(schema.friendships)
         .where(or(
             eq(schema.friendships.requesterId, userId),
             eq(schema.friendships.addresseeId, userId),
-        )).all();
+        ));
 
     const connectedIds = new Set<string>();
     connectedIds.add(userId);
@@ -70,14 +71,14 @@ friends.get('/suggestions', async (c) => {
     });
 
     // Get all users not connected
-    const allUsers = db.select({
+    const allUsers = await db.select({
         id: schema.users.id,
         name: schema.users.name,
         bio: schema.users.bio,
         avatarUrl: schema.users.avatarUrl,
         xp: schema.users.xp,
         level: schema.users.level,
-    }).from(schema.users).all();
+    }).from(schema.users);
 
     const suggestions = allUsers
         .filter(u => !connectedIds.has(u.id))
@@ -90,15 +91,15 @@ friends.get('/suggestions', async (c) => {
 friends.get('/', async (c) => {
     const userId = c.get('userId' as never) as string;
 
-    const all = db.select().from(schema.friendships)
+    const all = await db.select().from(schema.friendships)
         .where(and(
             or(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, userId)),
             eq(schema.friendships.status, 'accepted'),
-        )).all();
+        ));
 
     const friendIds = all.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
-    const friendUsers = friendIds.map(fid => {
-        const u = db.select({
+    const friendUsersList = await Promise.all(friendIds.map(async (fid) => {
+        const usersFound = await db.select({
             id: schema.users.id,
             name: schema.users.name,
             bio: schema.users.bio,
@@ -106,9 +107,10 @@ friends.get('/', async (c) => {
             xp: schema.users.xp,
             level: schema.users.level,
             loginStreak: schema.users.loginStreak,
-        }).from(schema.users).where(eq(schema.users.id, fid)).get();
-        return u;
-    }).filter(Boolean);
+        }).from(schema.users).where(eq(schema.users.id, fid));
+        return usersFound[0];
+    }));
+    const friendUsers = friendUsersList.filter((u): u is Exclude<typeof u, undefined> => !!u);
 
     return c.json(friendUsers);
 });
@@ -117,23 +119,24 @@ friends.get('/', async (c) => {
 friends.get('/requests', async (c) => {
     const userId = c.get('userId' as never) as string;
 
-    const pending = db.select().from(schema.friendships)
+    const pending = await db.select().from(schema.friendships)
         .where(and(
             eq(schema.friendships.addresseeId, userId),
             eq(schema.friendships.status, 'pending'),
-        )).all();
+        ));
 
-    const enriched = pending.map(f => {
-        const requester = db.select({
+    const enriched = await Promise.all(pending.map(async (f) => {
+        const usersFound = await db.select({
             id: schema.users.id,
             name: schema.users.name,
             bio: schema.users.bio,
             avatarUrl: schema.users.avatarUrl,
             xp: schema.users.xp,
             level: schema.users.level,
-        }).from(schema.users).where(eq(schema.users.id, f.requesterId)).get();
+        }).from(schema.users).where(eq(schema.users.id, f.requesterId));
+        const requester = usersFound[0];
         return { ...f, requester };
-    });
+    }));
 
     return c.json(enriched);
 });
@@ -142,20 +145,21 @@ friends.get('/requests', async (c) => {
 friends.get('/sent', async (c) => {
     const userId = c.get('userId' as never) as string;
 
-    const sent = db.select().from(schema.friendships)
+    const sent = await db.select().from(schema.friendships)
         .where(and(
             eq(schema.friendships.requesterId, userId),
             eq(schema.friendships.status, 'pending'),
-        )).all();
+        ));
 
-    const enriched = sent.map(f => {
-        const addressee = db.select({
+    const enriched = await Promise.all(sent.map(async (f) => {
+        const usersFound = await db.select({
             id: schema.users.id,
             name: schema.users.name,
             avatarUrl: schema.users.avatarUrl,
-        }).from(schema.users).where(eq(schema.users.id, f.addresseeId)).get();
+        }).from(schema.users).where(eq(schema.users.id, f.addresseeId));
+        const addressee = usersFound[0];
         return { ...f, addressee };
-    });
+    }));
 
     return c.json(enriched);
 });
@@ -165,11 +169,12 @@ friends.get('/status/:userId', async (c) => {
     const userId = c.get('userId' as never) as string;
     const targetId = c.req.param('userId');
 
-    const fs = db.select().from(schema.friendships)
+    const fsFound = await db.select().from(schema.friendships)
         .where(or(
             and(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, targetId)),
             and(eq(schema.friendships.requesterId, targetId), eq(schema.friendships.addresseeId, userId)),
-        )).get();
+        ));
+    const fs = fsFound[0];
 
     return c.json({ status: fs?.status || 'none', friendshipId: fs?.id || null, isRequester: fs?.requesterId === userId });
 });
@@ -181,39 +186,41 @@ friends.post('/request/:userId', async (c) => {
     if (userId === targetId) return c.json({ error: 'Cannot friend yourself' }, 400);
 
     // Check existing
-    const existing = db.select().from(schema.friendships)
+    const existingFsFound = await db.select().from(schema.friendships)
         .where(or(
             and(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, targetId)),
             and(eq(schema.friendships.requesterId, targetId), eq(schema.friendships.addresseeId, userId)),
-        )).get();
+        ));
+    const existing = existingFsFound[0];
 
     if (existing) {
         if (existing.status === 'accepted') return c.json({ error: 'Already friends' }, 400);
         if (existing.status === 'pending') return c.json({ error: 'Request already pending' }, 400);
         // If rejected, allow re-request by updating
-        db.update(schema.friendships).set({
+        await db.update(schema.friendships).set({
             requesterId: userId, addresseeId: targetId,
             status: 'pending', updatedAt: new Date().toISOString(),
-        }).where(eq(schema.friendships.id, existing.id)).run();
+        }).where(eq(schema.friendships.id, existing.id));
         return c.json({ message: 'Friend request sent' });
     }
 
     const id = crypto.randomUUID();
-    db.insert(schema.friendships).values({
+    await db.insert(schema.friendships).values({
         id, requesterId: userId, addresseeId: targetId,
         status: 'pending', createdAt: new Date().toISOString(),
-    }).run();
+    });
 
     // Notify target
-    const requester = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
-    db.insert(schema.notifications).values({
+    const requestersFound = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    const requester = requestersFound[0];
+    await db.insert(schema.notifications).values({
         id: crypto.randomUUID(),
         userId: targetId,
         type: 'friend_request',
         title: 'New Friend Request',
         body: `${requester?.name || 'Someone'} sent you a friend request!`,
         createdAt: new Date().toISOString(),
-    }).run();
+    });
 
     return c.json({ message: 'Friend request sent', friendshipId: id });
 });
@@ -223,29 +230,31 @@ friends.post('/accept/:requestId', async (c) => {
     const userId = c.get('userId' as never) as string;
     const requestId = c.req.param('requestId');
 
-    const fs = db.select().from(schema.friendships).where(eq(schema.friendships.id, requestId)).get();
+    const friendshipsFound = await db.select().from(schema.friendships).where(eq(schema.friendships.id, requestId));
+    const fs = friendshipsFound[0];
     if (!fs) return c.json({ error: 'Request not found' }, 404);
     if (fs.addresseeId !== userId) return c.json({ error: 'Not your request' }, 403);
     if (fs.status !== 'pending') return c.json({ error: 'Already responded' }, 400);
 
-    db.update(schema.friendships).set({
+    await db.update(schema.friendships).set({
         status: 'accepted', updatedAt: new Date().toISOString(),
-    }).where(eq(schema.friendships.id, requestId)).run();
+    }).where(eq(schema.friendships.id, requestId));
 
     // Award XP to both
     awardXP(userId, XP_REWARDS.ADD_FRIEND, 'Made a new friend');
     awardXP(fs.requesterId, XP_REWARDS.ADD_FRIEND, 'Made a new friend');
 
     // Notify requester
-    const acceptor = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
-    db.insert(schema.notifications).values({
+    const acceptorsFound = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    const acceptor = acceptorsFound[0];
+    await db.insert(schema.notifications).values({
         id: crypto.randomUUID(),
         userId: fs.requesterId,
         type: 'friend_accepted',
         title: 'Friend Request Accepted!',
         body: `${acceptor?.name || 'Someone'} accepted your friend request! 🎉`,
         createdAt: new Date().toISOString(),
-    }).run();
+    });
 
     return c.json({ message: 'Friend request accepted' });
 });
@@ -255,13 +264,14 @@ friends.post('/reject/:requestId', async (c) => {
     const userId = c.get('userId' as never) as string;
     const requestId = c.req.param('requestId');
 
-    const fs = db.select().from(schema.friendships).where(eq(schema.friendships.id, requestId)).get();
+    const friendshipsFound = await db.select().from(schema.friendships).where(eq(schema.friendships.id, requestId));
+    const fs = friendshipsFound[0];
     if (!fs) return c.json({ error: 'Request not found' }, 404);
     if (fs.addresseeId !== userId) return c.json({ error: 'Not your request' }, 403);
 
-    db.update(schema.friendships).set({
+    await db.update(schema.friendships).set({
         status: 'rejected', updatedAt: new Date().toISOString(),
-    }).where(eq(schema.friendships.id, requestId)).run();
+    }).where(eq(schema.friendships.id, requestId));
 
     return c.json({ message: 'Friend request rejected' });
 });
@@ -271,18 +281,19 @@ friends.delete('/remove/:friendId', async (c) => {
     const userId = c.get('userId' as never) as string;
     const friendId = c.req.param('friendId');
 
-    const fs = db.select().from(schema.friendships)
+    const friendshipsFound = await db.select().from(schema.friendships)
         .where(and(
             or(
                 and(eq(schema.friendships.requesterId, userId), eq(schema.friendships.addresseeId, friendId)),
                 and(eq(schema.friendships.requesterId, friendId), eq(schema.friendships.addresseeId, userId)),
             ),
             eq(schema.friendships.status, 'accepted'),
-        )).get();
+        ));
+    const fs = friendshipsFound[0];
 
     if (!fs) return c.json({ error: 'Not friends' }, 404);
 
-    db.delete(schema.friendships).where(eq(schema.friendships.id, fs.id)).run();
+    await db.delete(schema.friendships).where(eq(schema.friendships.id, fs.id));
     return c.json({ message: 'Friend removed' });
 });
 

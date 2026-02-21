@@ -5,13 +5,13 @@ import { randomUUID } from 'crypto';
  * Auto-create notifications when events occur in the app.
  * This replaces hardcoded notifications with real, event-driven ones.
  */
-export function createNotification(
+export async function createNotification(
     userId: string,
     type: string,
     title: string,
     body: string,
 ) {
-    db.insert(schema.notifications).values({
+    await db.insert(schema.notifications).values({
         id: randomUUID(),
         userId,
         type,
@@ -19,13 +19,13 @@ export function createNotification(
         body,
         isRead: false,
         createdAt: new Date().toISOString(),
-    }).run();
+    });
 }
 
 // ─── Specific notification helpers ────────────────────────
 
-export function notifyUpvote(postOwnerId: string, voterName: string, postTitle: string) {
-    createNotification(
+export async function notifyUpvote(postOwnerId: string, voterName: string, postTitle: string) {
+    await createNotification(
         postOwnerId,
         'upvote',
         'Post upvoted!',
@@ -33,8 +33,8 @@ export function notifyUpvote(postOwnerId: string, voterName: string, postTitle: 
     );
 }
 
-export function notifyComment(postOwnerId: string, commenterName: string, postTitle: string) {
-    createNotification(
+export async function notifyComment(postOwnerId: string, commenterName: string, postTitle: string) {
+    await createNotification(
         postOwnerId,
         'post_reply',
         'New comment',
@@ -42,8 +42,8 @@ export function notifyComment(postOwnerId: string, commenterName: string, postTi
     );
 }
 
-export function notifyChallengeJoin(challengeCreatorId: string, joinerName: string, challengeTitle: string) {
-    createNotification(
+export async function notifyChallengeJoin(challengeCreatorId: string, joinerName: string, challengeTitle: string) {
+    await createNotification(
         challengeCreatorId,
         'challenge_invite',
         'New participant!',
@@ -51,10 +51,10 @@ export function notifyChallengeJoin(challengeCreatorId: string, joinerName: stri
     );
 }
 
-export function notifyChatMessage(recipientIds: string[], senderName: string, challengeTitle: string, senderId: string) {
+export async function notifyChatMessage(recipientIds: string[], senderName: string, challengeTitle: string, senderId: string) {
     for (const uid of recipientIds) {
         if (uid === senderId) continue; // don't notify yourself
-        createNotification(
+        await createNotification(
             uid,
             'chat_message',
             'New message',
@@ -63,8 +63,8 @@ export function notifyChatMessage(recipientIds: string[], senderName: string, ch
     }
 }
 
-export function notifyStreakMilestone(userId: string, streakDays: number, habitName: string) {
-    createNotification(
+export async function notifyStreakMilestone(userId: string, streakDays: number, habitName: string) {
+    await createNotification(
         userId,
         'streak_milestone',
         `🔥 ${streakDays}-Day Streak!`,
@@ -72,8 +72,8 @@ export function notifyStreakMilestone(userId: string, streakDays: number, habitN
     );
 }
 
-export function notifyBadgeEarned(userId: string, badgeName: string) {
-    createNotification(
+export async function notifyBadgeEarned(userId: string, badgeName: string) {
+    await createNotification(
         userId,
         'streak_milestone',
         '🏅 Badge Earned!',
@@ -81,8 +81,8 @@ export function notifyBadgeEarned(userId: string, badgeName: string) {
     );
 }
 
-export function notifyDM(recipientId: string, senderName: string) {
-    createNotification(
+export async function notifyDM(recipientId: string, senderName: string) {
+    await createNotification(
         recipientId,
         'chat_message',
         'New message',

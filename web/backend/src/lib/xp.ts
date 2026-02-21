@@ -36,8 +36,9 @@ export function calculateLevel(totalXp: number): { level: number; xpInLevel: num
     };
 }
 
-export function awardXP(userId: string, amount: number, reason: string): { xp: number; level: number; xpToNext: number; leveledUp: boolean } {
-    const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+export async function awardXP(userId: string, amount: number, reason: string): Promise<{ xp: number; level: number; xpToNext: number; leveledUp: boolean }> {
+    const usersFound = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    const user = usersFound[0];
     if (!user) return { xp: 0, level: 1, xpToNext: 100, leveledUp: false };
 
     const oldLevel = calculateLevel(user.xp).level;
@@ -45,10 +46,10 @@ export function awardXP(userId: string, amount: number, reason: string): { xp: n
     const { level: newLevel, xpToNext } = calculateLevel(newXp);
     const leveledUp = newLevel > oldLevel;
 
-    db.update(schema.users).set({ xp: newXp, level: newLevel }).where(eq(schema.users.id, userId)).run();
+    await db.update(schema.users).set({ xp: newXp, level: newLevel }).where(eq(schema.users.id, userId));
 
     if (leveledUp) {
-        createNotification(
+        await createNotification(
             userId,
             'level_up',
             `Level ${newLevel} Reached! 🎉`,

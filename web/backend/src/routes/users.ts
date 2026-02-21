@@ -7,17 +7,18 @@ const users = new Hono();
 // GET /api/users/:id — public profile
 users.get('/:id', async (c) => {
     const userId = c.req.param('id');
-    const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    const usersFound = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    const user = usersFound[0];
     if (!user) return c.json({ error: 'User not found' }, 404);
 
     // Habits (public view)
-    const habits = db.select().from(schema.habits).where(eq(schema.habits.userId, userId)).all();
+    const habits = await db.select().from(schema.habits).where(eq(schema.habits.userId, userId));
 
     // Badges
-    const earnedBadges = db.select().from(schema.userBadges).where(eq(schema.userBadges.userId, userId)).all();
+    const earnedBadges = await db.select().from(schema.userBadges).where(eq(schema.userBadges.userId, userId));
 
     // Posts
-    const posts = db.select({
+    const posts = await db.select({
         id: schema.posts.id,
         title: schema.posts.title,
         body: schema.posts.body,
@@ -29,12 +30,11 @@ users.get('/:id', async (c) => {
     })
         .from(schema.posts)
         .where(eq(schema.posts.authorId, userId))
-        .orderBy(desc(schema.posts.createdAt))
-        .all();
+        .orderBy(desc(schema.posts.createdAt));
 
     // Challenge participation
-    const challengeParticipations = db.select().from(schema.challengeParticipants)
-        .where(eq(schema.challengeParticipants.userId, userId)).all();
+    const challengeParticipations = await db.select().from(schema.challengeParticipants)
+        .where(eq(schema.challengeParticipants.userId, userId));
 
     const totalStreak = habits.reduce((s, h) => s + h.currentStreak, 0);
     const longestStreak = habits.reduce((s, h) => Math.max(s, h.longestStreak), 0);

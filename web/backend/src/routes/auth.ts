@@ -15,22 +15,23 @@ auth.post('/login', async (c) => {
     }
 
     // Find user by email
-    const users = db.select().from(schema.users).where(eq(schema.users.email, email)).all();
-    let user = users[0];
+    const usersList = await db.select().from(schema.users).where(eq(schema.users.email, email));
+    let user = usersList[0];
 
     // If no user, auto-create (demo mode)
     if (!user) {
         const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
         const id = `u_${Date.now()}`;
-        db.insert(schema.users).values({
+        await db.insert(schema.users).values({
             id,
             name,
             email,
             passwordHash: 'demo',
             bio: 'New to Rithmic! 🌟',
             createdAt: new Date().toISOString(),
-        }).run();
-        user = db.select().from(schema.users).where(eq(schema.users.id, id)).get()!;
+        });
+        const createdUsers = await db.select().from(schema.users).where(eq(schema.users.id, id));
+        user = createdUsers[0]!;
     }
 
     // ─── Daily Login Streak ──────────────────────────────────
@@ -55,13 +56,14 @@ auth.post('/login', async (c) => {
 
         awardXP(user.id, loginReward, 'Daily login');
 
-        db.update(schema.users).set({
+        await db.update(schema.users).set({
             lastLoginDate: today,
             loginStreak,
-        }).where(eq(schema.users.id, user.id)).run();
+        }).where(eq(schema.users.id, user.id));
 
         // Re-fetch after XP update
-        user = db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()!;
+        const updatedUsers = await db.select().from(schema.users).where(eq(schema.users.id, user.id));
+        user = updatedUsers[0]!;
     }
 
     const token = generateToken(user.id);
@@ -87,10 +89,11 @@ auth.post('/login', async (c) => {
 
 // GET /api/auth/me
 auth.get('/me', async (c) => {
-    const userId = c.get('userId');
+    const userId = c.get('userId' as never) as string;
     if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
-    const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    const userList = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    const user = userList[0];
     if (!user) return c.json({ error: 'User not found' }, 404);
 
     const { level, xpInLevel, xpToNext } = calculateLevel(user.xp);

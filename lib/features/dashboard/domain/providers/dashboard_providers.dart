@@ -54,5 +54,4 @@ final chartDataProvider = Provider<List<double>>((ref) {
   return [30, 42, 55, 48, 64, 58, 64];
 });
 
-/// Provider: theme mode
-final themeProvider = StateProvider<bool>((ref) => true); // true = dark neon
+

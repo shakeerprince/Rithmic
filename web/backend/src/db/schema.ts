@@ -1,7 +1,7 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core';
 
 // ─── Users ────────────────────────────────────────────────────
-export const users = sqliteTable('users', {
+export const users = pgTable('users', {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
@@ -16,7 +16,7 @@ export const users = sqliteTable('users', {
 });
 
 // ─── Habits ───────────────────────────────────────────────────
-export const habits = sqliteTable('habits', {
+export const habits = pgTable('habits', {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     category: text('category').notNull().default('Custom'),
@@ -26,7 +26,7 @@ export const habits = sqliteTable('habits', {
     endMinute: integer('end_minute').notNull().default(0),
     daysOfWeek: text('days_of_week').notNull().default('1,2,3,4,5,6,7'),
     frequency: text('frequency').notNull().default('Daily'),
-    reminderEnabled: integer('reminder_enabled', { mode: 'boolean' }).notNull().default(true),
+    reminderEnabled: boolean('reminder_enabled').notNull().default(true),
     createdAt: text('created_at').notNull(),
     currentStreak: integer('current_streak').notNull().default(0),
     longestStreak: integer('longest_streak').notNull().default(0),
@@ -35,7 +35,7 @@ export const habits = sqliteTable('habits', {
 });
 
 // ─── Habit Entries ────────────────────────────────────────────
-export const habitEntries = sqliteTable('habit_entries', {
+export const habitEntries = pgTable('habit_entries', {
     id: text('id').primaryKey(),
     habitId: text('habit_id').notNull().references(() => habits.id),
     date: text('date').notNull(),
@@ -46,7 +46,7 @@ export const habitEntries = sqliteTable('habit_entries', {
 });
 
 // ─── Posts ─────────────────────────────────────────────────────
-export const posts = sqliteTable('posts', {
+export const posts = pgTable('posts', {
     id: text('id').primaryKey(),
     authorId: text('author_id').notNull().references(() => users.id),
     title: text('title').notNull(),
@@ -61,7 +61,7 @@ export const posts = sqliteTable('posts', {
 });
 
 // ─── Post Votes ───────────────────────────────────────────────
-export const postVotes = sqliteTable('post_votes', {
+export const postVotes = pgTable('post_votes', {
     id: text('id').primaryKey(),
     postId: text('post_id').notNull().references(() => posts.id),
     userId: text('user_id').notNull().references(() => users.id),
@@ -69,7 +69,7 @@ export const postVotes = sqliteTable('post_votes', {
 });
 
 // ─── Comments ─────────────────────────────────────────────────
-export const comments = sqliteTable('comments', {
+export const comments = pgTable('comments', {
     id: text('id').primaryKey(),
     postId: text('post_id').notNull().references(() => posts.id),
     authorId: text('author_id').notNull().references(() => users.id),
@@ -80,7 +80,7 @@ export const comments = sqliteTable('comments', {
 });
 
 // ─── Challenges ───────────────────────────────────────────────
-export const challenges = sqliteTable('challenges', {
+export const challenges = pgTable('challenges', {
     id: text('id').primaryKey(),
     title: text('title').notNull(),
     description: text('description').notNull(),
@@ -92,7 +92,7 @@ export const challenges = sqliteTable('challenges', {
 });
 
 // ─── Challenge Participants ───────────────────────────────────
-export const challengeParticipants = sqliteTable('challenge_participants', {
+export const challengeParticipants = pgTable('challenge_participants', {
     id: text('id').primaryKey(),
     challengeId: text('challenge_id').notNull().references(() => challenges.id),
     userId: text('user_id').notNull().references(() => users.id),
@@ -100,7 +100,7 @@ export const challengeParticipants = sqliteTable('challenge_participants', {
 });
 
 // ─── Chat Messages ────────────────────────────────────────────
-export const chatMessages = sqliteTable('chat_messages', {
+export const chatMessages = pgTable('chat_messages', {
     id: text('id').primaryKey(),
     challengeId: text('challenge_id').notNull().references(() => challenges.id),
     senderId: text('sender_id').notNull().references(() => users.id),
@@ -109,18 +109,18 @@ export const chatMessages = sqliteTable('chat_messages', {
 });
 
 // ─── Notifications ────────────────────────────────────────────
-export const notifications = sqliteTable('notifications', {
+export const notifications = pgTable('notifications', {
     id: text('id').primaryKey(),
     userId: text('user_id').notNull().references(() => users.id),
     type: text('type').notNull(),
     title: text('title').notNull(),
     body: text('body').notNull(),
-    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    isRead: boolean('is_read').notNull().default(false),
     createdAt: text('created_at').notNull(),
 });
 
 // ─── Badges (user-earned) ─────────────────────────────────────
-export const userBadges = sqliteTable('user_badges', {
+export const userBadges = pgTable('user_badges', {
     id: text('id').primaryKey(),
     userId: text('user_id').notNull().references(() => users.id),
     badgeName: text('badge_name').notNull(),
@@ -128,17 +128,17 @@ export const userBadges = sqliteTable('user_badges', {
 });
 
 // ─── Direct Messages ──────────────────────────────────────────
-export const directMessages = sqliteTable('direct_messages', {
+export const directMessages = pgTable('direct_messages', {
     id: text('id').primaryKey(),
     senderId: text('sender_id').notNull().references(() => users.id),
     recipientId: text('recipient_id').notNull().references(() => users.id),
     message: text('message').notNull(),
     sentAt: text('sent_at').notNull(),
-    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    isRead: boolean('is_read').notNull().default(false),
 });
 
 // ─── Friendships ──────────────────────────────────────────────
-export const friendships = sqliteTable('friendships', {
+export const friendships = pgTable('friendships', {
     id: text('id').primaryKey(),
     requesterId: text('requester_id').notNull().references(() => users.id),
     addresseeId: text('addressee_id').notNull().references(() => users.id),
@@ -148,7 +148,7 @@ export const friendships = sqliteTable('friendships', {
 });
 
 // ─── Communities ──────────────────────────────────────────────
-export const communities = sqliteTable('communities', {
+export const communities = pgTable('communities', {
     id: text('id').primaryKey(),
     name: text('name').notNull().unique(),
     description: text('description').notNull(),
@@ -163,7 +163,7 @@ export const communities = sqliteTable('communities', {
 });
 
 // ─── Community Members ────────────────────────────────────────
-export const communityMembers = sqliteTable('community_members', {
+export const communityMembers = pgTable('community_members', {
     id: text('id').primaryKey(),
     communityId: text('community_id').notNull().references(() => communities.id),
     userId: text('user_id').notNull().references(() => users.id),

@@ -1,10 +1,14 @@
 import { Hono } from 'hono';
 import { resolve, extname } from 'path';
 import { mkdirSync, existsSync, writeFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 
 const uploads = new Hono();
-const __dirname = import.meta.dir;
-const UPLOAD_DIR = resolve(__dirname, '../../uploads');
+
+// Use /tmp on serverless (Vercel), or local uploads/ dir for dev
+const UPLOAD_DIR = process.env.VERCEL
+    ? '/tmp/uploads'
+    : resolve(process.cwd(), 'uploads');
 
 // Ensure uploads directory exists
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -27,7 +31,7 @@ uploads.post('/', async (c) => {
     if (file.size > MAX_SIZE) return c.json({ error: 'File too large (max 10MB)' }, 400);
 
     const ext = extname(file.name) || '.bin';
-    const filename = `${crypto.randomUUID()}${ext}`;
+    const filename = `${randomUUID()}${ext}`;
     const filepath = resolve(UPLOAD_DIR, filename);
 
     const buffer = await file.arrayBuffer();
