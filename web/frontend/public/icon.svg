@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0C0C1D"/>
+      <stop offset="100%" style="stop-color:#141428"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c5cfc"/>
+      <stop offset="50%" style="stop-color:#9B7BFF"/>
+      <stop offset="100%" style="stop-color:#6CB4EE"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ADE80"/>
+      <stop offset="100%" style="stop-color:#22D3EE"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Outer glow ring -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#ring)" stroke-width="36" stroke-linecap="round"
+    stroke-dasharray="820 280" stroke-dashoffset="-40" filter="url(#glow)" opacity="0.3"/>
+  <!-- Main progress ring (75% complete) -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#ring)" stroke-width="36" stroke-linecap="round"
+    stroke-dasharray="820 280" stroke-dashoffset="-40"/>
+  <!-- Inner dot accent -->
+  <circle cx="256" cy="256" r="6" fill="#7c5cfc" opacity="0.4"/>
+  <!-- Checkmark -->
+  <path d="M 200 260 L 240 300 L 320 220" fill="none" stroke="url(#check)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
